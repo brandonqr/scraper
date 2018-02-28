@@ -19,41 +19,71 @@ class PgAmarilla {
 
     InsertarEnDB(webs) {
             this.webs = JSON.parse(webs);
-            this.subscription = this.RecorrerWeb().subscribe(
-                datos => {
-                    console.log(datos);
-                });
-
+            this.RecorrerWeb();
         }
         //esta funcion se vuelve  a llamar cuantas veces numeros de webs haya.
     RecorrerWeb() {
+            if (this.contadorPrincipal < this.webs.length) {
+                this.interval = setInterval(() => {
+                    //La siguiente funcion optiene la pagina final y el numero de resultados
+                    this.subscription = this.ObtenerPgFinal().subscribe(
+                        datos => {
+                            console.log(datos);
+                            this.pgFinal = datos.pgFinal;
+                            this.nResultados = datos.nResultados;
+                            this.resultadosPorPagina = datos.resultadosPorPagina;
+                            this.RecorrerWeb();
+                        },
+                        error => {
+                            console.log("ha ocurrido un error en obtener pgFinal", error);
+                        },
+                        () => {
+                            console.log("Se ha terminado el observado de obtener pgFinal");
+                        }
+                    );
+                    //el contador suma cuando la funcion se termina de ejecutar
+                    this.contadorPrincipal++;
+                }, 1000);
+            }
+        }
+        //intentar hacer una funcion recursiva de las peticiones
+    RecorrerPaginas() {}
+    ObtenerPgFinal() {
         this.url = this.webs[this.contadorPrincipal];
-        //console.log(this.url);
+        //la funcion GenerarUrl es para modificar las urls, para que sea mejor su acceso
+        this.GenerarUrl();
+        //He detenido la ejecucion del interval, para proceder a obtener los datos de la url
+        clearInterval(this.interval);
+        var pgFinal = 0;
+        var resultadosPorPagina = 0;
+        var nResultados = 0;
+        var datos = {};
+
         return new Observable(observer => {
-            request(this.url, function(
-                error,
-                response,
-                html
-            ) {
+            request(this.url, function(error, response, html) {
                 if (!error && response.statusCode == 200) {
                     var $ = cheerio.load(html);
-                    var nResultados = $(".h1")
+                    nResultados = $(".h1")
                         .text()
                         .replace(/[^\d]/g, "");
-                    var resultadosPorPagina = nResultados < 15 ? nResultados : 15;
-                    var pgFinal = Math.ceil(nResultados / resultadosPorPagina);
 
-                    var datos = {
-                        nResultados: nResultados,
+                    resultadosPorPagina = nResultados < 15 ? nResultados : 15;
+                    pgFinal = Math.ceil(nResultados / resultadosPorPagina);
+
+                    datos = {
                         resultadosPorPagina: resultadosPorPagina,
-                        pgFinal: pgFinal
-                    }
+                        pgFinal: pgFinal,
+                        nResultados: nResultados
+                    };
                     observer.next(datos);
+                } else {
+                    // observer.error('La web no existe', error);
                 }
+                // observer.complete();
             });
-        })
-
+        });
     }
+
     GenerarUrl() {
         let campos = this.url.split("/");
         this.url = ""; //dejar vacia la url para poder modificarla
