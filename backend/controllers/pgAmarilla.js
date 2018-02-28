@@ -19,10 +19,25 @@ class PgAmarilla {
 
     InsertarEnDB(webs) {
             this.webs = JSON.parse(webs);
-            this.subscription = this.RecorrerWeb().subscribe(
-                datos => {
-                    console.log(datos);
-                });
+            this.Empezar();
+
+        }
+        //EMpezar: Obtiene la pgFinal, los resultados por pagina y numero de resultados
+    Empezar() {
+        this.subscription = this.RecorrerWeb().subscribe(
+            datos => {
+                this.pgFinal = datos.pgFinal;
+                this.resultadosPorPagina =
+                    datos.resultadosPorPagina;
+                this.nResultados = datos.nResultados;
+                this.RecorrerPaginas();
+            }
+        );
+
+    }
+    RecorrerPaginas() {
+
+
 
         }
         //esta funcion se vuelve  a llamar cuantas veces numeros de webs haya.
