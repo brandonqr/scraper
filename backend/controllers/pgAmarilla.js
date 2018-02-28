@@ -8,7 +8,7 @@ class PgAmarilla {
         this.subscription = Subscription;
         this.interval = undefined;
         this.resultadosPorPagina = 15;
-        this.contadorPrincipal = 1;
+        this.contadorPrincipal = 0;
         this.contador = 0;
         this.pgFinal = 0;
         this.nResultados = 0;
@@ -19,11 +19,18 @@ class PgAmarilla {
 
     InsertarEnDB(webs) {
             this.webs = JSON.parse(webs);
+            this.contadorPrincipal = 0;
+            this.contador = 0;
             this.Empezar();
 
         }
         //EMpezar: Obtiene la pgFinal, los resultados por pagina y numero de resultados
     Empezar() {
+
+        console.log("======================================");
+        console.log(this.contadorPrincipal);
+        console.log("======================================");
+
         this.subscription = this.RecorrerWeb().subscribe(
             datos => {
                 this.pgFinal = datos.pgFinal;
@@ -33,11 +40,90 @@ class PgAmarilla {
                 this.RecorrerPaginas();
             }
         );
+    }
+    ObtenerDatos(uri) {
+        var obsObtenerDatos = new Observable(observer => {
+            request(uri, function(
+                error,
+                response,
+                html
+            ) {
+                if (!error && response.statusCode == 200) {
+                    var $ = cheerio.load(html);
+                    var objeto = $("body > div:nth-child(5)").attr("data-business");
+                    observer.next(objeto);
+                } else {
+                    observer.error('Error al obtener los objetos');
+                }
+                observer.complete();
+            });
+        });
+
+        obsObtenerDatos.subscribe(
+            objeto => {
+                console.log("=================");
+                console.log(objeto);
+                console.log("===================")
+            },
+            (error) => error,
+            () => {
+                //En éste punto es el fin del script de 1 url
+                //primero comparar de cuanta longitud es nuestro array de urls
+
+                //console.log(this.webs.length);
+
+                if (this.contadorPrincipal < this.webs.length - 1) { //llamar a empezar para ir por la siguiente url
+                    console.log("Ha terminado la ulr", this.contadorPrincipal);
+                    this.contadorPrincipal++;
+                    this.Empezar();
+                    //sumar+1 al this.contador -> es el contador de los arrays
+
+                    //poner a cero el this.contadorSecundario, es el contador de las paginas
+                    this.contador = 0;
+                }
+
+
+            })
 
     }
     RecorrerPaginas() {
+            this.GenerarUrl();
+            //console.log('Recorrer paginas', this.url);
+            var obsRecorrerPaginas = new Observable(observer => {
+                request(this.url, function(
+                    error,
+                    response,
+                    html
+                ) {
+                    if (!error && response.statusCode == 200) {
+                        var $ = cheerio.load(html);
+                        $(".envio-consulta a").each(function(
+                            index
+                        ) {
+                            var uri = $(this).attr("href");
+                            observer.next(uri);
+                        });
+                    } else {
+                        observer.error();
+                    }
+                    observer.complete();
+                });
+            });
 
+            obsRecorrerPaginas.subscribe(uri => {
+                    //llamar a funcion donde recorra las paginas y obtenga los objetos(datos)
+                    this.ObtenerDatos(uri)
+                        //console.log(uri);
 
+                }, (error) => error,
+                () => {
+                    //console.log('Ha finalizado');
+                    if (this.contador < this.pgFinal) {
+                        this.contador++;
+                        this.RecorrerPaginas();
+                    }
+
+                });
 
         }
         //esta funcion se vuelve  a llamar cuantas veces numeros de webs haya.
@@ -67,7 +153,6 @@ class PgAmarilla {
                 }
             });
         })
-
     }
     GenerarUrl() {
         let campos = this.url.split("/");
@@ -79,10 +164,10 @@ class PgAmarilla {
             } else {
                 //si los enleces contienen la palabra ?what entra por aqui
                 if (campos[i].includes("?what")) {
-                    this.url += this.contadorPrincipal + "?" + campos[i].split("?")[1];
+                    this.url += this.contador + 1 + "?" + campos[i].split("?")[1];
                 } else if (campos[i].indexOf(numero)) {
-                    this.url += this.contadorPrincipal;
-                    console.log("No lleva wtf");
+                    this.url += this.contador + 1;
+                    //console.log("No lleva wtf");
                 } else {
                     //console.log(campos[i].split('?')[0]);
                     console.log("la url no es valida");
