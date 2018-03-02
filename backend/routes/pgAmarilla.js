@@ -13,10 +13,21 @@ var Web = require('../models/web');
 // OBTENER COSAS
 // ======================================
 app.get('/', (req, res, next) => {
-    res.status(200).json({
-        ok: true,
-        mensaje: 'Peticion realizada correctamente - paginas amarillas'
-    });
+    Web.find({})
+        .exec(
+            (err, webs) => {
+                if (err) return;
+                res
+                    .status(200)
+                    .json({
+                        //ok: true,
+                        webs
+                        //mensaje: "Peticion realizada correctamente - paginas amarillas"
+                    });
+
+            }
+        )
+
 });
 // ======================================
 // INSERTAR DATOS
@@ -24,13 +35,15 @@ app.get('/', (req, res, next) => {
 app.post('/', (req, res, next) => {
 
     var webs = req.body.webs;
+    var categoria = req.body.categoria;
     //
     if (PgAmarilla.IsJson(webs)) {
-        p.InsertarEnDB(webs);
+        p.InsertarEnDB(webs, categoria);
 
         res.status(200).json({
             ok: true,
-            webs
+            webs,
+            categoria
             //mensaje: JSON.stringify(webs)
         });
     } else {

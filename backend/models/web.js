@@ -3,6 +3,8 @@ var Schema = mongose.Schema;
 
 var webSchema = new Schema({
     fuente: { type: String },
+    web_id: { type: String, unique: true },
+    categoria: { type: String },
     nombre: { type: String },
     actividad: { type: String },
     telefono: { type: String },
@@ -11,7 +13,6 @@ var webSchema = new Schema({
     provincia: { type: String },
     localidad: { type: String },
     direccion: { type: String }
-
 });
 module.exports = mongose.model('Web', webSchema);
 /*

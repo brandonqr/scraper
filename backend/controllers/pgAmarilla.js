@@ -2,6 +2,7 @@ var request = require("request");
 var cheerio = require("cheerio");
 var Observable = require("rxjs/Observable").Observable;
 var Subscription = require("rxjs/RX").Subscription;
+var Web = require('../models/web');
 
 class PgAmarilla {
     constructor() {
@@ -15,16 +16,55 @@ class PgAmarilla {
         this.url = "";
         this.webs = [];
         this.paginas = [];
+        this.fuente = '';
+
     }
 
-    InsertarEnDB(webs) {
+    InsertarEnDB(webs, categoria) {
+            this.categoria = categoria;
             this.webs = JSON.parse(webs);
             this.contadorPrincipal = 0;
             this.contador = 0;
             this.Empezar();
 
         }
-        //EMpezar: Obtiene la pgFinal, los resultados por pagina y numero de resultados
+        //inserta a la base de datos
+    Insertar(objeto) {
+        //console.log(objeto);
+        var web = new Web({
+            fuente: this.fuente,
+            web_id: objeto.info.id,
+            categoria: this.categoria,
+            nombre: objeto.info.name,
+            actividad: objeto.info.activity || " ",
+            telefono: objeto.info.phone || " ",
+            email: objeto.customerMail || " ",
+            web: objeto.adWebEstablecimiento || " ",
+            provincia: objeto.location.province || " ",
+            localidad: objeto.location.locality || " ",
+            direccion: objeto.info.businessAddress || " "
+        });
+        //comprueba si el Objeto está insertado en la base de datos
+        Web.findOne({ web_id: objeto.info.id }, function(err, webAbuscar) {
+            if (err) {
+                return;
+            }
+            if (!webAbuscar) {
+                //Si el objeto no existe, lo inserta en la DB
+                web.save((err, web) => {
+                    if (err) {
+                        return;
+                    }
+                    console.log("Objeto insertado");
+                });
+            } else {
+                console.log("El objeto ya está insertado en la DB");
+            }
+            return true;
+        });
+    }
+
+    //EMpezar: Obtiene la pgFinal, los resultados por pagina y numero de resultados
     Empezar() {
 
         console.log("======================================");
@@ -37,6 +77,7 @@ class PgAmarilla {
                 this.resultadosPorPagina =
                     datos.resultadosPorPagina;
                 this.nResultados = datos.nResultados;
+                this.fuente = datos.fuente;
                 this.RecorrerPaginas();
             }
         );
@@ -61,9 +102,14 @@ class PgAmarilla {
 
         obsObtenerDatos.subscribe(
             objeto => {
-                console.log("=================");
-                console.log(objeto);
-                console.log("===================")
+                //console.log(objeto)
+                //Insertar en la Base de datos
+                try {
+                    this.Insertar(JSON.parse(objeto));
+                } catch (error) {
+                    console.log(error);
+                }
+
             },
             (error) => error,
             () => {
@@ -73,15 +119,16 @@ class PgAmarilla {
                 //console.log(this.webs.length);
 
                 if (this.contadorPrincipal < this.webs.length - 1) { //llamar a empezar para ir por la siguiente url
-                    console.log("Ha terminado la ulr", this.contadorPrincipal);
+
                     this.contadorPrincipal++;
                     this.Empezar();
                     //sumar+1 al this.contador -> es el contador de los arrays
 
                     //poner a cero el this.contadorSecundario, es el contador de las paginas
                     this.contador = 0;
-                }
 
+                }
+                console.log("Ha terminado la ulr", this.contadorPrincipal);
 
             })
 
@@ -141,13 +188,15 @@ class PgAmarilla {
                     var nResultados = $(".h1")
                         .text()
                         .replace(/[^\d]/g, "");
+                    var fuente = $(".logo").attr("title");
                     var resultadosPorPagina = nResultados < 15 ? nResultados : 15;
                     var pgFinal = Math.ceil(nResultados / resultadosPorPagina);
 
                     var datos = {
                         nResultados: nResultados,
                         resultadosPorPagina: resultadosPorPagina,
-                        pgFinal: pgFinal
+                        pgFinal: pgFinal,
+                        fuente: fuente
                     }
                     observer.next(datos);
                 }
@@ -163,7 +212,7 @@ class PgAmarilla {
                 this.url += campos[i] + "/";
             } else {
                 //si los enleces contienen la palabra ?what entra por aqui
-                if (campos[i].includes("?what")) {
+                if (campos[i].includes("?")) {
                     this.url += this.contador + 1 + "?" + campos[i].split("?")[1];
                 } else if (campos[i].indexOf(numero)) {
                     this.url += this.contador + 1;
